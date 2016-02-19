@@ -20,7 +20,6 @@ export default class Note extends React.Component {
 	}
 
 	renderNote = () => {
-		console.log("normal note");
 		// if the user clicks a normal note, trigger editing logic.
 		const onDelete = this.props.onDelete;
 		return (
