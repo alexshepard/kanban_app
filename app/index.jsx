@@ -10,4 +10,5 @@ import persist from './libs/persist';
 
 persist(alt, storage, 'app');
 
+console.log("hello");
 ReactDOM.render(<App />, document.getElementById('app'));

@@ -1,8 +1,14 @@
 const path = require('path');
 const merge = require('webpack-merge');
 const webpack = require('webpack');
-
 const NpmInstallPlugin = require('npm-install-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CleanPlugin = require('clean-webpack-plugin');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+
+// Load *package.json" so we can use `dependencies` from there
+const pkg = require('./package.json');
+
 
 const TARGET = process.env.npm_lifecycle_event;
 const PATHS = {
@@ -26,17 +32,10 @@ const common = {
 	},
 	output: {
 		path: PATHS.build,
-		filename: 'bundle.js'
+		filename: '[name].js'
 	},
 	module: {
 		loaders: [
-			{
-				// Test expects a RegExp! Note the slashes!
-				test: /\.css$/,
-				loaders: ['style', 'css'],
-				// Include accepts either a path or an array of paths.
-				include: PATHS.app
-			},
 			// use babel for jsx and js. 
 			// this accepts js too thanks to the regexp
 			{
@@ -53,7 +52,15 @@ const common = {
 				include: PATHS.app
 			}
 		]
-	}
+	},
+	plugins: [
+		new HtmlWebpackPlugin({
+			template: 'node_modules/html-webpack-template/index.ejs',
+			title: 'Kanban app',
+			appMountId: 'app',
+			inject: false
+		})
+	]
 }
 
 // Default configuration
@@ -62,8 +69,6 @@ if (TARGET === 'start' || !TARGET) {
 
 		devtool: 'eval-source-map',
 		devServer: {
-			contentBase: PATHS.build,
-
 			// Enable history API fallback so HTML5 history API based
 			// routing works. This is a good default that will come
 			// in handy in more complicated setups.
@@ -82,6 +87,18 @@ if (TARGET === 'start' || !TARGET) {
 			host: process.env.HOST,
 			port: process.env.PORT
 		},
+		module: {
+			loaders: [
+				// define development specific CSS setup
+				{
+					// Test expects a RegExp! Note the slashes!
+					test: /\.css$/,
+					loaders: ['style', 'css'],
+					// Include accepts either a path or an array of paths.
+					include: PATHS.app
+				}
+			]
+		},
 		plugins: [
 			new webpack.HotModuleReplacementPlugin(),
 			new NpmInstallPlugin({
@@ -92,5 +109,42 @@ if (TARGET === 'start' || !TARGET) {
 }
 
 if (TARGET === 'build') {
-	module.exports = merge(common, {});
+	module.exports = merge(common, {
+		// define vendor entry point needed for splitting
+		entry: {
+			vendor: Object.keys(pkg.dependencies).filter(function(v) {
+				// Exclude alt-utils as it won't work with this setup
+				// due to the way the package has been designed
+				// (no package.json main).
+				return v !== 'alt-utils';
+			})
+		},
+		output: {
+			path: PATHS.build,
+			filename: '[name].[chunkhash].js',
+			chunkFilename: '[chunkhash].js'
+		},
+		plugins: [
+			new CleanPlugin([PATHS.build]),
+			// extract vendor and manifest files
+			new webpack.optimize.CommonsChunkPlugin({
+				names: ['vendor', 'manifest']
+			}),
+			// setting DefinePlugin affects React library size!
+			// DefinePlugin replaces content "as is" so we need
+			// some extra quotes for the generated code to make
+			// sense
+			new webpack.DefinePlugin({
+				'process.env.NODE_ENV': '"production"'
+				// you can set this to JSON.stringify('development')
+				// for your dev target to force NODE_ENV to
+				// dev mode no matter what
+			}),
+			new webpack.optimize.UglifyJsPlugin({
+				compress: {
+					warnings: false
+				}
+			})
+		]
+	});
 }
