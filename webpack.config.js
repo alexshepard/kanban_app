@@ -13,7 +13,8 @@ const pkg = require('./package.json');
 const TARGET = process.env.npm_lifecycle_event;
 const PATHS = {
 	app: path.join(__dirname, 'app'),
-	build: path.join(__dirname, 'build')
+	build: path.join(__dirname, 'build'),
+	style: path.join(__dirname, 'app/main.css')
 };
 
 process.env.BABEL_ENV = TARGET;
@@ -22,7 +23,8 @@ const common = {
 	// Entry accepts a path or an object of entries. We'll be using the
 	// latter form given its more convenient with more complex configs.
 	entry: {
-		app: PATHS.app
+		app: PATHS.app,
+		style: PATHS.style
 	},
 	// add resolve.extensions
 	// '' is needed to allow imports without an extensions
@@ -108,7 +110,7 @@ if (TARGET === 'start' || !TARGET) {
 	});
 }
 
-if (TARGET === 'build') {
+if (TARGET === 'build' || TARGET === 'stats') {
 	module.exports = merge(common, {
 		// define vendor entry point needed for splitting
 		entry: {
@@ -124,8 +126,21 @@ if (TARGET === 'build') {
 			filename: '[name].[chunkhash].js',
 			chunkFilename: '[chunkhash].js'
 		},
+		module: {
+			loaders: [
+				// extract CSS during build
+				{
+					test: /\.css$/,
+					loader: ExtractTextPlugin.extract('style', 'css'),
+					include: PATHS.app
+				}
+			]
+		},
 		plugins: [
-			new CleanPlugin([PATHS.build]),
+			new CleanPlugin([PATHS.build], {
+				verbose: false // don't write logs to console
+			}),
+			new ExtractTextPlugin('[name].[chunkhash].css'),
 			// extract vendor and manifest files
 			new webpack.optimize.CommonsChunkPlugin({
 				names: ['vendor', 'manifest']
