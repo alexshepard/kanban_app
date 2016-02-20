@@ -1,78 +1,47 @@
 import React from 'react';
 
-class Note extends React.Component {
-	constructor(props) {
-		super(props);
+import {DragSource, DropTarget} from 'react-dnd';
+import ItemTypes from '../constants/itemTypes';
 
-		// track `editing` state
-		this.state = {
-			editing: false
+const noteSource = {
+	beginDrag(props) {
+		return {
+			id: props.id
 		};
+	},
+	isDragging(props, monitor) {
+		return props.id === monitor.getItem().id;
 	}
+};
+
+const noteTarget = {
+	hover(targetProps, monitor) {
+		const targetId = targetProps.id;
+		const sourceProps = monitor.getItem();
+		const sourceId = sourceProps.id;
+
+		if (sourceId !== targetId) {
+			targetProps.onMove({ sourceId, targetId });
+		}
+	}
+};
+
+@DragSource(ItemTypes.TYPE, noteSource, (connect, monitor) => ({
+	connectDragSource: connect.dragSource(),
+	isDragging: monitor.isDragging()	// map isDragging() state to isDragging prop
+}))
+@DropTarget(ItemTypes.TYPE, noteTarget, (connect) => ({
+	connectDropTarget: connect.dropTarget()
+}))
+class Note extends React.Component {
 	render() {
-    	if (this.state.editing) {
-			return this.renderEdit();
-		}
-
-    	return this.renderNote();
+		const {connectDragSource, connectDropTarget, isDragging, onMove, id, ...props} = this.props;
+		return connectDragSource(connectDropTarget(
+			<li style={{
+				opacity: isDragging ? 0 : 1
+			}} {...props}>{props.children}</li>
+		));
 	}
- 	renderEdit = () => {
-		return <input type="text"
-			ref={
-				(e) => e ? e.selectionStart = this.props.task.length : null
-			}
-			autoFocus={true}
-			defaultValue={this.props.task}
-			onBlur={this.finishEdit}
-			onKeyPress={this.checkEnter} />;
-	};
-
-	renderDelete = () => {
-		return <button 
-      className="delete-note"
-			onClick={this.props.onDelete}>x</button>;
-	};
-	renderNote = () => {
-		const onDelete = this.props.onDelete;
-
-		return (
-			<div onClick={this.edit}>
-				<span className="task">{this.props.task}</span>
-				{onDelete ? this.renderDelete() : null }
-			</div>
-		);
-	};
-	edit = () => {
-    	this.setState({
-			editing: true
-		});
- 	};
- 	checkEnter = (e) => {
- 		if (e.key === 'Enter') {
- 			this.finishEdit(e);
- 		}
- 	};
-
- 	finishEdit = (e) => {
- 		// `Note` will trigger an optional `onEdit` callback when it has a new value
- 		// We will use this to communicate the change to `App`
- 		// A smarter way to deal with the default value would be to set it thru
- 		// `defaultProps`
- 		// See the *Typing with React* chapter for more info
- 		const value = e.target.value;
- 		if (this.props.onEdit) {
- 			this.props.onEdit(value);
-
-			// exit edit mode
-			this.setState({
-				editing: false
-			});
-		}
-	 		
- 	};
-
 }
-
-
 
 export default Note;
